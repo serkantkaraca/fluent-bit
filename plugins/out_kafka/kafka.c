@@ -298,7 +298,14 @@ int produce_message(struct flb_time *tm, msgpack_object *map,
                          "retrying in one second");
 
             /*
-             * Give it some time to the background rdkafka
+             * If the queue is full, first make sure to discard any further
+             * flush request from the engine. This means 'the caller will
+             * issue a retry at a later time'.
+             */
+            ctx->blocked = FLB_TRUE;
+
+            /*
+             * Next step is to give it some time to the background rdkafka
              * library to do it own work. By default rdkafka wait 1 second
              * or up to 10000 messages to be enqueued before delivery.
              *
@@ -318,6 +325,7 @@ int produce_message(struct flb_time *tm, msgpack_object *map,
         flb_plg_debug(ctx->ins, "enqueued message (%zd bytes) for topic '%s'",
                       out_size, rd_kafka_topic_name(topic->tp));
     }
+    ctx->blocked = FLB_FALSE;
 
     rd_kafka_poll(ctx->producer, 0);
     if (ctx->format == FLB_KAFKA_FMT_JSON) {
@@ -344,6 +352,15 @@ static void cb_kafka_flush(const void *data, size_t bytes,
     struct flb_time tms;
     msgpack_object *obj;
     msgpack_unpacked result;
+
+    /*
+     * If the context is blocked, means rdkafka queue is full and no more
+     * messages can be appended. For our called (Fluent Bit engine) means
+     * that is not possible to work on this now and it need to 'retry'.
+     */
+    if (ctx->blocked == FLB_TRUE) {
+        FLB_OUTPUT_RETURN(FLB_RETRY);
+    }
 
     /* Iterate the original buffer and perform adjustments */
     msgpack_unpacked_init(&result);
