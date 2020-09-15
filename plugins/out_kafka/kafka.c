@@ -91,7 +91,7 @@ int produce_message(struct flb_time *tm, msgpack_object *map,
     int i;
     int ret;
     int size;
-    int queue_full_retries = 0;
+    //int queue_full_retries = 0;
     char *out_buf;
     size_t out_size;
     struct mk_list *head;
@@ -266,7 +266,7 @@ int produce_message(struct flb_time *tm, msgpack_object *map,
     }
 
  retry:
-    if (queue_full_retries >= 10) {
+    /*if (queue_full_retries >= 10) {
         if (ctx->format == FLB_KAFKA_FMT_JSON) {
             flb_free(out_buf);
         }
@@ -275,7 +275,7 @@ int produce_message(struct flb_time *tm, msgpack_object *map,
         }
         msgpack_sbuffer_destroy(&mp_sbuf);
         return FLB_RETRY;
-    }
+    }*/
 
     ret = rd_kafka_produce(topic->tp,
                            RD_KAFKA_PARTITION_UA,
@@ -317,7 +317,7 @@ int produce_message(struct flb_time *tm, msgpack_object *map,
             rd_kafka_poll(ctx->producer, 0);
 
             /* Issue a re-try */
-            queue_full_retries++;
+            //queue_full_retries++;
             goto retry;
         }
     }
